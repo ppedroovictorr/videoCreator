@@ -18,6 +18,11 @@ try:
 except ImportError:
     whisper = None
 
+# Ajuste de velocidade da narracao
+# 0% = velocidade padrao do edge-tts
+# -15% = narracao mais calma
+NARRATION_RATE = "-15%"
+
 FFMPEG_PATH = r"C:\ffmpeg\bin\ffmpeg.exe"
 FFPROBE_PATH = FFMPEG_PATH.replace("ffmpeg.exe", "ffprobe.exe")
 
@@ -329,20 +334,18 @@ async def main():
     
     bruto_path = script_dir / "historia_bruto.mp3"
     
-    # Etapa 1: transformando texto
     print("Etapa 1: transformando texto para leitura fluida...")
     barra_progresso(1, 6, "Transformando texto")
     texto = transformar_texto_para_leitura_fluida(texto_original)
     
-    # Etapa 2: gerando audio bruto
     print("Etapa 2: gerando audio bruto com edge-tts...")
+    print(f"Velocidade da narracao: {NARRATION_RATE} (0% = padrao)")
     barra_progresso(2, 6, "Gerando audio bruto")
     iniciar_status_rodape("Gerando audio bruto...", 2, 6)
-    communicate = edge_tts.Communicate(texto, voice)
+    communicate = edge_tts.Communicate(texto, voice, rate=NARRATION_RATE)
     await communicate.save(str(bruto_path))
     parar_status_rodape("Audio bruto gerado.")
     
-    # Etapa 3: removendo silencios
     print("Etapa 3: removendo silencios com FFmpeg...")
     barra_progresso(3, 6, "Removendo silencios")
     iniciar_status_rodape("Tirando/removendo silencio...", 3, 6)
@@ -351,7 +354,6 @@ async def main():
     ], check=True)
     parar_status_rodape("Silencio removido.")
     
-    # Etapa 4: obtendo duracoes
     print("Etapa 4: obtendo duracao dos audios...")
     barra_progresso(4, 6, "Obtendo duracoes")
     duracao_bruto = obter_duracao_audio(bruto_path)
@@ -359,7 +361,6 @@ async def main():
     print(f"Duracao do audio original: {formatar_duracao(duracao_bruto)}")
     print(f"Duracao do audio cortado : {formatar_duracao(duracao_final)}")
     
-    # Etapa 5: gerando legenda se solicitado
     if legenda:
         if whisper is None:
             print("Erro: para a opcao B com legenda, instale openai-whisper.")
@@ -374,7 +375,6 @@ async def main():
     else:
         barra_progresso(5, 6, "Pulando legenda")
     
-    # Etapa 6: gerando video
     print("Etapa 6: gerando video com a imagem selecionada...")
     barra_progresso(6, 6, "Gerando video")
     vf = "scale=854:480:force_original_aspect_ratio=decrease,pad=854:480:(ow-iw)/2:(oh-ih)/2:black"
@@ -402,7 +402,6 @@ async def main():
         "-r", "2", "-c:a", "aac", "-b:a", "128k", "-shortest", str(video_path)
     ], cwd=script_dir, check=True)
     
-    # Limpeza final
     if bruto_path.exists():
         bruto_path.unlink()
     legenda_temp_path = script_dir / "legenda_temp.ass"
